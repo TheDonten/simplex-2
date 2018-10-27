@@ -75,7 +75,13 @@ public:
 		}
 	}
 	void create_simplex_tabl() {
-	
+		if (s) {
+			for (int i = 0; i < rows + 1; ++i) {
+				for (int j = 0; j < columns + 1; ++j) {
+					elements[i][j] *= -1;
+				}
+			}
+	}
 		simplex_tabl.resize(rows + 1);
 		for (int i = 0; i < rows + 1; ++i) {
 			simplex_tabl[i].resize(columns + 1);
@@ -88,8 +94,9 @@ public:
 		for (int i = 0; i < columns; ++i) {
 			cp[i] = (i + 1);
 		}
+		int k = 0;
 		for (int i = 0; i < rows; ++i) {
-			bp[i] = (i + 4);
+			bp[i] = cp[columns - 1] + 1 + i;
 		}
 	}
 	void optimal() {
@@ -100,50 +107,64 @@ public:
 				}
 			}
 			if (flag) {
-				//разрещающий элемент;
-				if (decision) decision = false;
-				else  element = rows_and_columns(element);
-				//заменив базис поменяв переменные местами
-					
-				change_bazis(element);
-				
-			for (int i = 1; i < columns + 1; ++i) {
-				
-				
-				if (simplex_tabl[rows][i] > 0) {
-					for (int j = 0; j < rows; ++j) {
-						if (simplex_tabl[j][i] > 0) { flag_optimal = true;
-						break;
-						}
-						else flag_optimal = false;
-					}
-					break;
-				}
-				else { flag_optimal = false; 
-				}
+//разрещающий элемент;
+if (decision) decision = false;
+else  element = rows_and_columns(element);
+//заменив базис поменяв переменные местами
+
+change_bazis(element);
+
+for (int i = 1; i < columns + 1; ++i) {
+	if (simplex_tabl[rows][i] > 0) {
+		for (int j = 0; j < rows; ++j) {
+			if (simplex_tabl[j][i] > 0) {
+				flag_optimal = true;
+				break;
 			}
-			write(std::cout);
-			optimal();
-	    }
+			else flag_optimal = false;
+		}
+		break;
+	}
+	else {
+		flag_optimal = false;
+	}
+	if (!(flag_optimal)) {
+		for (int i = 0; i < rows; ++i) {
+			if (simplex_tabl[i][0] < 0) {
+				flag_optimal = true;
+				break;
+			}
+		}
+	}
+}
+write(std::cout);
+optimal();
+		}
 			else std::cout << "there is no decision";
 	}
 		else std::cout << " Optimal decision";
 	}
-	void change_bazis(std::pair<int,int>& element) {
+	void change_bazis(std::pair<int, int>& element) {
 		//изменение столбца и строки
-		std::swap(cp[element.second - 1], bp[element.first]);
-		for (int i = 0; i < rows+1; ++i) {
+		int b = element.second - 1;
+		int c;
+		if (bp.size() == rows && element.first == rows) {
+			c = element.first - 1;
+		}
+		else c = element.first;
+		std::swap(cp[b], bp[c]);
+		for (int i = 0; i < rows + 1; ++i) {
 			if (i == element.first) {
 				simplex_tabl[i][element.second] = 1 / elements[element.first][element.second];
 			}
-			else  simplex_tabl[i][element.second] /= -elements[element.first][element.second]; 
+			else  simplex_tabl[i][element.second] /= -elements[element.first][element.second];
 		}
-	
+
 		for (int i = 0; i < columns + 1; ++i) {
 			if (i == element.second);
 			else simplex_tabl[element.first][i] /= elements[element.first][element.second];
 		}
-		
+
 		for (int i = 0; i < rows + 1; ++i) {
 			for (int j = 0; j < columns + 1; ++j) {
 				if (i != element.first && j != element.second) {
@@ -151,21 +172,64 @@ public:
 				}
 			}
 		}
-		
+
 	}
-	std::pair<int, int>& rows_and_columns(std::pair<int,int>& element) {
+	std::pair<int, int>& rows_and_columns(std::pair<int, int>& element) {
 		//находим наибольший столбец
 		int k = 1;
+
 		for (int j = 1; j < columns; ++j) {
-			if (simplex_tabl[rows][k] < simplex_tabl[rows][j + 1]) k = j+1;
-			
+			if (simplex_tabl[rows][k] < simplex_tabl[rows][j + 1]) k = j + 1;
 		}
+
+
 		element.second = k;
-		// находим разрещающий строку
+		bool check = false;
+		int m = 0;
 		int q = 0;
-		for (int i = 0; i < rows - 1; ++i) {
-			if ((simplex_tabl[i][0] / simplex_tabl[q][element.second]) > (simplex_tabl[i + 1][0] / simplex_tabl[i + 1][element.second]))
-				q = i + 1;
+		for (int i = 0; i < rows; ++i) {
+			/*if (simplex_tabl[i][0] > 0 && simplex_tabl[i + 1][0] < 0) {
+				for (int j = 1; j < columns; ++j) {
+					if ((simplex_tabl[i + 1][0] / simplex_tabl[i + 1][j]) > 0) {
+						if ((simplex_tabl[i + 1][0] / simplex_tabl[i + 1][j]) > (simplex_tabl[i + 1][0] / simplex_tabl[i + 1][j + 1])) {
+							if ((simplex_tabl[i + 1][0] / simplex_tabl[i + 1][j + 1]) > 0) {
+								q = i + 1;
+							}
+						}
+					}
+				}
+			}*/
+			for (int k = 0; k < rows; ++k) {
+				if (simplex_tabl[k][0] < 0) {
+					m = k;
+					check = true;
+					break;
+				}
+			}
+			if (check) {
+				for (int j = 1; j < columns; ++j) {
+					if ((simplex_tabl[m][0] / simplex_tabl[m][j]) > 0) {
+						if ((simplex_tabl[m][0] / simplex_tabl[m][j]) > (simplex_tabl[m][0] / simplex_tabl[m][j + 1])){
+							if ((simplex_tabl[m][0] / simplex_tabl[m][j + 1]) > 0) {
+								q = m;
+								element.second = j + 1;
+						}
+}
+					}
+				}
+				break;
+			}
+			else if ((simplex_tabl[i][0] / simplex_tabl[q][element.second]) > (simplex_tabl[i + 1][0] / simplex_tabl[i + 1][element.second])) {
+				if ((simplex_tabl[i + 1][0] / simplex_tabl[i + 1][element.second]) > 0) {
+					q = i + 1;
+				}
+			
+			}
+			else if ((simplex_tabl[i][0] / simplex_tabl[q][element.second]) < 0) {
+				if ((simplex_tabl[i + 1][0] / simplex_tabl[i + 1][element.second]) > 0) {
+					q = i + 1;
+				}
+			}
 			
 		}
 		element.first = q;
