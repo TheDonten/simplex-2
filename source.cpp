@@ -11,86 +11,265 @@
 #include <unordered_map>
 #include <vector>
 #include <cstring>
+#include <cmath>
 #include <fstream>
 #include <iomanip>
+#include <math.h>
 class simplex {
 private:
+	
 	bool s;
-	bool flag;
-	bool flag_optimal;
-	bool decision;
+	
 	bool max_or_min;
-	std::pair<int, int> element;
+	
+
 	std::vector<int> c_;
 	std::vector<int> b_;
 	std::vector<int> bp;
 	std::vector<int> cp;
 	std::vector<std::vector<double>> elements;
 	std::vector<std::vector<double>> simplex_tabl;
+	
 	int rows;
 	int columns;
+	
+	int F;
+	int m;
+	
 	double perm;
+	bool meh = true;
 public:
+	bool CLP = false;
 	simplex() {
 		rows = 0;
 		columns = 0;
 		perm = 0;
-		flag = true;
-		flag_optimal = true;
-		decision = false;
+		
 		max_or_min = true;
 		s = false;
 	};
 
 	void algorithm(const std::string& str) {
 		parse_file(str);
-		create_simplex_tabl();
-		write(std::cout);
-		check_decision();
-		optimal();
-		inv();
-		write(std::cout);
+		//save();
+		create_simplex_tabl(rows,simplex_tabl, elements, cp, bp);
+		write(std::cout,rows,simplex_tabl,cp,bp);
+		std::pair<int, int> elem;
+		bool flag = check_decision(rows, simplex_tabl, elements, elem, cp, bp);
+		optimal(flag, elem, rows, simplex_tabl, elements, cp, bp);
+		write(std::cout, rows, simplex_tabl, cp, bp);
+		
+		//inv();		
+		F = -simplex_tabl[rows][0];
+		if (CLP) {
+			
+			std::vector<std::vector<double>> proverka;
+			proverka.resize(rows + 1);
+			for (int i = 0; i < rows + 1; ++i) {
+				proverka[i].resize(columns + 1);
+				for (int j = 0; j < columns + 1; ++j) {
+					proverka[i][j] = simplex_tabl[i][j];
+				}
+			}
+			int count = rows + columns;
+			std::vector<int> cc = cp;
+			std::vector<int> bb = bp;
+			m = rows;
+			
+			cl(proverka,elements, count,rows,cc,bb);
+						
+		}
+		
 		std::cout << "F=" << simplex_tabl[rows][0];
 	}
-	void check_decision() {
-		bool not_minus = true;
-		for (int i = 0; i < rows && not_minus; ++i) {
-			if (simplex_tabl[i][0] < 0) {
-				for (int j = 1; j < columns + 1; ++j) {
-					if (simplex_tabl[i][j] > 0) {
-						flag = false;
+	
+	void cl(std::vector<std::vector<double>> k, std::vector<std::vector<double>> el, int count, int row, std::vector<int> c, std::vector<int>  b) {
+		
+		
+		double l;
+		std::vector<double> func;
+		std::vector<double> rev;
+		func.resize(columns + 1);
+		rev.resize(columns);
+		for (int i = 0; i < row; ++i) {
+			l = (round(1000 * k[i][0]) / 1000);
+			if (l != int(l) && (b[i] <= m)) {
+				for (int j = 0; j < columns; ++j) {
+					rev[j] = k[i][j + 1];
+				}
+				for (int p = 0; p < columns + 1; ++p) {
+					func[p] = k[row][p];
+				}
+				++row;
+				++count;
+				b.push_back(count);
+				
+				left(k,el, l,row,func,rev,c,b,count);
+				right(k, el, l, row, func, rev, c, b, count);
+				break;
+			
+			}
+		}
+		
+	}
+	void okrug(int row, std::vector<std::vector<double>> &si, std::vector<int>  b) {
+		double k,l;
+		for (int i = 0; i < row + 1; ++i) {
+			k = floor(si[i][0]);
+			l = floor(si[i][0]) + 1;
+			if (k - si[i][0] > -0.05) {
+				si[i][0] = k;
+			}
+			else if (l - si[i][0] < 0.05) {
+				si[i][0] = l;
+			}
+		}
+	}
+	void right(std::vector<std::vector<double>> k, std::vector<std::vector<double>> el, double num, int row, std::vector<double> func, std::vector<double> rev, std::vector<int>  c, std::vector<int>  b, int count) {
+		double n = ceil(num);
+		std::cout << " RIGHT" << std::endl << std::endl << std::endl;
 
-					}
-					else {
-						flag = true;
-						decision = true;
-						not_minus = false;
-						element.first = i;
-						element.second = j;
-						break;
-					}
+		k.resize(row + 1);
+		for (int i = 0; i < row + 1; ++i) {
+			k[row].resize(columns + 1);
+			for (int j = 0; j < columns + 1; ++j) {
+				if (i == row - 1) {
+					if (j == 0) k[i][j] = num - n;
+					else k[i][j] = rev[j - 1];
+				}
+				else if (i == row) {
+					k[i][j] = func[j];
 				}
 			}
-			else continue;
 		}
-	}
-	void create_simplex_tabl() {
-		if (s) {
-			for (int i = 0; i < rows + 1; ++i) {
-				for (int j = 0; j < columns + 1; ++j) {
-					elements[i][j] *= -1;
+		write(std::cout, row, k, c, b);
+		meh = false;
+		create_simplex_tabl(row, el, k, c, b);
+		std::pair<int, int> elem;
+		bool flag = check_decision(row, k, el, elem, c, b);
+		if (!(flag)) {
+			std::cout << "Null soluion" << std::endl;
+			return;
+		}
+		optimal(flag, elem, row, k, el, c, b);
+		write(std::cout, row, k, c, b);
+		okrug(row, k, b);
+		double l;
+		bool check = true;
+		for (int i = 0; i < row; ++i) {
+			l = (round(1000 * k[i][0])) / 1000;
+			if (l != int(l) && b[i] <= m) {
+				check = false;
+				break;
+			}
+			else check = true;
+
+		}
+		double mec;
+		mec = -k[row][0];
+		if (check) {
+			if (mec > F) {
+				std::cout << "No decision" << std::endl;
+				return;
+			}
+			else {
+				std::cout << "CLP" << std::endl;
+				for (int i = 0; i < row; ++i) {
+					if (b[i] <= m) {
+						std::cout << "X" << b[i] << "=" << k[i][0] << "  ";
+					}
+				}
+				write(std::cout, row, k, c, b);
+				return;
+			}
+		}
+		else
+		{
+			for (int i = 0; i < row; ++i) {
+				if (b[i] <= m) {
+					std::cout << "X" << b[i] << "=" << k[i][0] << "  ";
 				}
 			}
-	}
-		simplex_tabl.resize(rows + 1);
-		for (int i = 0; i < rows + 1; ++i) {
-			simplex_tabl[i].resize(columns + 1);
-				for (int j = 0; j < columns + 1; ++j) {
-					simplex_tabl[i][j] = elements[i][j];
-				}
+			cl(k, el, count, row, c, b);
 		}
-		bp.resize(rows);
-		cp.resize(columns);
+
+	}
+	void left(std::vector<std::vector<double>> k, std::vector<std::vector<double>> el, double num, int row, std::vector<double> func, std::vector<double> rev, std::vector<int>  c, std::vector<int>  b, int count) {
+		double n = floor(num);
+		std::cout << " LEFT" << std::endl << std::endl << std::endl;
+		
+		k.resize(row + 1);
+		for (int i = 0; i < row + 1; ++i) {
+			k[row].resize(columns + 1);
+			for (int j = 0; j < columns + 1; ++j) {
+				if (i == row - 1) {
+					if (j == 0) k[i][j] = n - num;
+					else k[i][j] = -rev[j - 1];
+				}
+				else if (i == row) {
+					k[i][j] = func[j];
+				}
+			}
+		}
+		write(std::cout, row, k, c, b);
+		meh = false;
+		create_simplex_tabl(row, el, k, c, b);
+		std::pair<int, int> elem;
+		bool flag = check_decision(row, k, el, elem, c, b);
+		if (!(flag)) {
+			std::cout << "Null soluion" << std::endl;
+			return;
+		}
+		optimal(flag,elem,row,k,el,c,b);
+		write(std::cout, row, k, c, b);
+		okrug(row, k, b);
+		double l;
+		bool check = true;
+		for (int i = 0; i < row; ++i) {
+			l = (round(1000 * k[i][0])) / 1000;
+			if (l != int(l) && b[i] <= m) {
+				check = false;
+				break;
+			}
+			else check = true;
+
+		}
+		double mec;
+		mec = -k[row][0];
+		if (check) {
+			if (mec > F) {
+				std::cout << "No decision" << std::endl;
+				return;
+			}
+			else{
+				std::cout << "CLP" << std::endl;
+				for (int i = 0; i < row; ++i) {
+					if (b[i] <= m) {
+						std::cout << "X" << b[i] << "=" << k[i][0] << "  ";
+					}
+				}
+				write(std::cout, row, k, c, b);
+				return;
+			}
+		}
+		else
+		{
+			for (int i = 0; i < row; ++i) {
+				if (b[i] <= m) {
+					std::cout << "X" << b[i] << "=" << k[i][0] << "  ";
+				}
+			}
+			cl(k, el, count, row, c, b);
+		}
+		
+	}
+/*	void change() {
+		for (int i = 0; i < rows; ++i) {
+			for (int j = 0; j < columns + 1; ++j) {
+				elements[i][j] = proverka[i][j];
+			}
+		}
+
 		for (int i = 0; i < columns; ++i) {
 			cp[i] = (i + 1);
 		}
@@ -98,172 +277,319 @@ public:
 		for (int i = 0; i < rows; ++i) {
 			bp[i] = cp[columns - 1] + 1 + i;
 		}
+	}*/
+	/*void c_l() {
+		count = columns + rows;
+		int m = rows;
+		rows_check = rows;
+		func.resize(columns + 1);
+		rev.resize(columns + 1);
+		for (int i = 0; i < m; ++i) {
+			if (simplex_tabl[i][0] != int(simplex_tabl[i][0])) {
+				//change();
+				for (int j = 0; j < columns ; ++j) {
+					rev[j] = simplex_tabl[i][j + 1];
+				}
+				++rows_check;
+				++count;
+				bp.push_back(count);
+				left(simplex_tabl[i][0]);
+			}
+		}
+
 	}
-	void optimal() {
-		if (flag_optimal) {
-			for (int i = 0; i < rows + 1; ++i) {
-				for (int j = 0; j < columns + 1; ++j) {
-					elements[i][j] = simplex_tabl[i][j];
+	void left(double k ) {
+		double m = floor(k);
+		
+		for (int i = 0; i < columns + 1; ++i) {
+			func[i] = simplex_tabl[rows][i];
+		}
+		rows = rows_check;
+		simplex_tabl.resize(rows + 1);
+		for (int i = 0; i < rows + 1; ++i) {
+			simplex_tabl[rows].resize(columns + 1);
+			for (int j = 0; j < columns + 1; ++j) {
+				if (i == rows - 1) {
+					if (j == 0) simplex_tabl[i][j] = m-k;
+					else simplex_tabl[i][j] = -rev[j - 1];
+				}
+				else if (i == rows) {
+					simplex_tabl[i][j] = func[j];
 				}
 			}
-			if (flag) {
-//разрещающий элемент;
-if (decision) decision = false;
-else  element = rows_and_columns(element);
-//заменив базис поменяв переменные местами
-
-change_bazis(element);
-
-for (int i = 1; i < columns + 1; ++i) {
-	if (simplex_tabl[rows][i] > 0) {
-		for (int j = 0; j < rows; ++j) {
-			if (simplex_tabl[j][i] > 0) {
-				flag_optimal = true;
-				break;
-			}
-			else flag_optimal = false;
 		}
-		break;
-	}
-	else {
-		flag_optimal = false;
-	}
-	if (!(flag_optimal)) {
+		flag_optimal = true;
+		write(std::cout);
+		check_decision();
+		
+		optimal();
+		
+		int l;
 		for (int i = 0; i < rows; ++i) {
-			if (simplex_tabl[i][0] < 0) {
-				flag_optimal = true;
+			l = (round(1000 * simplex_tabl[i][0])) / 1000;
+			if (l != int(l)) {
+				check = false;
 				break;
 			}
+			else check = true;
+
 		}
-	}
-}
-write(std::cout);
-optimal();
-		}
-			else std::cout << "there is no decision";
-	}
-		else std::cout << " Optimal decision";
-	}
-	void change_bazis(std::pair<int, int>& element) {
-		//изменение столбца и строки
-		int b = element.second - 1;
-		int c;
-		if (bp.size() == rows && element.first == rows) {
-			c = element.first - 1;
-		}
-		else c = element.first;
-		std::swap(cp[b], bp[c]);
-		for (int i = 0; i < rows + 1; ++i) {
-			if (i == element.first) {
-				simplex_tabl[i][element.second] = 1 / elements[element.first][element.second];
+		if (check) {
+			if (simplex_tabl[rows][0] > F) {
+				std::cout << "No decision" << std::endl;
+				return;
 			}
-			else  simplex_tabl[i][element.second] /= -elements[element.first][element.second];
+		}
+		//c_l();
+		
+	
+		write(std::cout);
+	}*/
+	/*void save() {
+		proverka.resize(rows);
+		for (int i = 0; i < rows; ++i) {
+			proverka[i].resize(columns + 1);
+			for (int j = 0; j < columns + 1; ++j) {
+				proverka[i][j] = elements[i][j];
+			}
+		}
+
+	}*/
+
+	    bool check_decision(int row, std::vector<std::vector<double>> &si, std::vector<std::vector<double>> &e, std::pair<int,int> el, std::vector<int> &c, std::vector<int> &b) {
+		bool not_minus = true;
+		//bool meh = true;
+		
+		std::cout << " OPOR" << std::endl << std::endl << std::endl;
+		write(std::cout, row, si, c, b);
+		e.resize(row + 1);
+		for (int i = 0; i < row + 1; ++i) {
+			e[i].resize(columns + 1);
+			for (int j = 0; j < columns + 1; ++j) {
+				e[i][j] = si[i][j];
+			}
+		}
+		bool decision = true;
+		bool flag = false;
+		for (int i = 0; i < row && decision; ++i) {
+			if (si[i][0] < 0) {
+				for (int j = 1; j < columns + 1; ++j) {
+					if (si[i][j] > 0) {
+						decision = false;
+						flag = false;
+					}
+					else {
+						decision = false;
+						flag = true;
+						el.first = i;
+						el.second = j;
+						break;
+					}
+				}
+			}
+		}
+		if (flag) {
+			change_bazis(row, el, si, e, c, b);
+			check_decision(row, si, e,el,c, b);
+
+		}
+		else {
+			
+			return decision;
+		}
+		
+	}
+	void create_simplex_tabl(int row,std::vector<std::vector<double>> &si, std::vector<std::vector<double>> &e, std::vector<int> &c, std::vector<int> &b) {
+		if (s) {
+			for (int i = 0; i < row + 1; ++i) {
+				for (int j = 0; j < columns + 1; ++j) {
+					e[i][j] *= -1;
+				}
+			}
+		}
+		si.resize(row + 1);
+		for (int i = 0; i < row + 1; ++i) {
+			si[i].resize(columns + 1);
+			for (int j = 0; j < columns + 1; ++j) {
+				si[i][j] = e[i][j];
+			}
+		}
+		if (meh) {
+			b.resize(row);
+			c.resize(columns);
+			for (int i = 0; i < columns; ++i) {
+				c[i] = (i + 1);
+			}
+			int k = 0;
+			for (int i = 0; i < row; ++i) {
+				b[i] = cp[columns - 1] + 1 + i;
+			}
+		}
+	}
+	void optimal(bool flag_optimal,std::pair<int,int> element,int row, std::vector<std::vector<double>> &si, std::vector<std::vector<double>> &e, std::vector<int> &c, std::vector<int> &b) {
+		if (flag_optimal) {
+			e.resize(row + 1);
+			for (int i = 0; i < row + 1; ++i) {
+				e[i].resize(columns + 1);
+				for (int j = 0; j < columns + 1; ++j) {
+					e[i][j] = si[i][j];
+				}
+			}
+			
+			
+				//разрещающий элемент;
+				  element = rows_and_columns(element,row,si);
+
+				//заменив базис поменяв переменные местами
+				  if (element.second > 0) { change_bazis(row, element, si, e, c, b);
+				//  okrug(row, si);
+				  }
+				  write(std::cout, row, si, c, b);
+				  bool flag = true;
+				  for (int i = 0; i < row; ++i) {
+					  if (si[i][0] < 0) {
+						  flag = check_decision(row, si, e, element, c, b);
+						  break;
+					  }
+				  }
+				
+				  if (flag) {
+					  for (int j = 1; j < columns + 1; ++j) {
+						  if (si[row][j] < 0) flag_optimal = false;
+						  else {
+							  flag_optimal = true;
+							  break;
+						  }
+					  }
+					  write(std::cout, row, si, c, b);
+					  optimal(flag_optimal, element, row, si, e, c, b);
+				  }
+				  else {
+					  write(std::cout, row, si, c, b);
+					  throw std::logic_error("NUll");
+				  }
+				/*for (int j = 1; j < columns + 1; ++j) {
+					if (si[row][j] < 0) flag_optimal = false;
+					else {
+						flag_optimal = true;
+						break;
+					}
+				}
+				
+				write(std::cout,row,si,c,b);
+				std::pair<int, int> elem;
+				if (!(flag_optimal)) {
+					 bool flag = check_decision(row, si, e, elem, c, b).first;
+				}
+				
+				optimal(flag_optimal,element,row,si,e,c,b);*/
+			
+		}
+		else std::cout << " Optimal decision" << std::endl;
+	}
+	
+	void change_bazis(int row,std::pair<int, int>& element, std::vector<std::vector<double>> &si, std::vector<std::vector<double>> &e, std::vector<int> &c, std::vector<int> &b) {
+		//изменение столбца и строки
+
+		int m = element.second - 1;
+		
+		int l;
+		if (bp.size() == row && element.first == row) {
+			l = element.first - 1;
+		}
+		else l = element.first;
+		std::swap(c[m], b[l]);
+		for (int i = 0; i < row + 1; ++i) {
+			if (i == element.first) {
+				si[i][element.second] = 1 / e[element.first][element.second];
+			}
+			else  si[i][element.second] /= -e[element.first][element.second];
 		}
 
 		for (int i = 0; i < columns + 1; ++i) {
 			if (i == element.second);
-			else simplex_tabl[element.first][i] /= elements[element.first][element.second];
+			else si[element.first][i] /= e[element.first][element.second];
 		}
-
-		for (int i = 0; i < rows + 1; ++i) {
+		//(round(1000 * k[i][0])) / 1000;
+		for (int i = 0; i < row + 1; ++i) {
 			for (int j = 0; j < columns + 1; ++j) {
 				if (i != element.first && j != element.second) {
-					simplex_tabl[i][j] = elements[i][j] - ((elements[i][element.second] * elements[element.first][j]) / (elements[element.first][element.second]));
+					si[i][j] = (round(100 * (e[i][j] - ((e[i][element.second] * e[element.first][j]) / (e[element.first][element.second]))))) / 100;
 				}
 			}
 		}
 
 	}
-	std::pair<int, int>& rows_and_columns(std::pair<int, int>& element) {
+	std::pair<int, int>& rows_and_columns(std::pair<int, int>& element,int row, std::vector<std::vector<double>> &si) {
 		//находим наибольший столбец
-		int k = 1;
-
-		for (int j = 1; j < columns; ++j) {
-			if (simplex_tabl[rows][k] < simplex_tabl[rows][j + 1]) k = j + 1;
-		}
-
-
-		element.second = k;
-		bool check = false;
-		int m = 0;
-		int q = 0;
-		for (int i = 0; i < rows; ++i) {
-			/*if (simplex_tabl[i][0] > 0 && simplex_tabl[i + 1][0] < 0) {
-				for (int j = 1; j < columns; ++j) {
-					if ((simplex_tabl[i + 1][0] / simplex_tabl[i + 1][j]) > 0) {
-						if ((simplex_tabl[i + 1][0] / simplex_tabl[i + 1][j]) > (simplex_tabl[i + 1][0] / simplex_tabl[i + 1][j + 1])) {
-							if ((simplex_tabl[i + 1][0] / simplex_tabl[i + 1][j + 1]) > 0) {
-								q = i + 1;
-							}
-						}
-					}
-				}
-			}*/
-			for (int k = 0; k < rows; ++k) {
-				if (simplex_tabl[k][0] < 0) {
-					m = k;
-					check = true;
-					break;
-				}
-			}
-			if (check) {
-				for (int j = 1; j < columns; ++j) {
-					if ((simplex_tabl[m][0] / simplex_tabl[m][j]) > 0) {
-						if ((simplex_tabl[m][0] / simplex_tabl[m][j]) > (simplex_tabl[m][0] / simplex_tabl[m][j + 1])){
-							if ((simplex_tabl[m][0] / simplex_tabl[m][j + 1]) > 0) {
-								q = m;
-								element.second = j + 1;
-						}
-}
-					}
-				}
+		
+		for (int i = 1; i < columns + 1; ++i) {
+			if (si[row][i] > 0) {
+				element.second = i;
 				break;
 			}
-			else if ((simplex_tabl[i][0] / simplex_tabl[q][element.second]) > (simplex_tabl[i + 1][0] / simplex_tabl[i + 1][element.second])) {
-				if ((simplex_tabl[i + 1][0] / simplex_tabl[i + 1][element.second]) > 0) {
-					q = i + 1;
-				}
-			
-			}
-			else if ((simplex_tabl[i][0] / simplex_tabl[q][element.second]) < 0) {
-				if ((simplex_tabl[i + 1][0] / simplex_tabl[i + 1][element.second]) > 0) {
-					q = i + 1;
-				}
-			}
-			
 		}
-		element.first = q;
+		bool chase;
+		for (int i = 0; i < row; ++i) {
+			if (si[i][element.second] < 0) {
+				chase = true;
+			}
+			else {
+				chase = false;
+				break;
+			}
+		}
+		if (chase) throw std::logic_error("Null");
+	
+		element.first;
+		double mimal = 10000000000000;
+		int k = 0;
+		for (int i = 0; i < row; ++i)
+		{
+			if (si[i][element.second] > 0) 
+			{
+				double time = si[i][0] / si[i][element.second];
+				if (time < mimal && time >= 0) 
+				{
+					mimal = time;
+					k = i;
+				}
+			}
+		}
+		element.first = k;
 		return element;
 	}
-	std::ostream& write(std::ostream& stream) {
-		
-			stream << std::endl;
-			stream << std::setw(14) << "S";
-			for (int i = 0; i < columns; ++i) {
-				stream << std::setw(9) << "X" << cp[i];
-			
-			}
-			stream << std::endl;
-			for (int i = 0; i < rows + 1; ++i) {
-				if (i < rows) stream << std::setw(3) << "X" << bp[i];
-				else stream << std::setw(4) << "F";
-				for (int j = 0; j < columns + 1; ++j) {
-					if (simplex_tabl[i][j] == int(simplex_tabl[i][j])) {
+	std::ostream& write(std::ostream& stream,int row, std::vector<std::vector<double>> &si, std::vector<int> &c, std::vector<int> & b) {
 
-						stream << std::setw(10) << simplex_tabl[i][j];
+		stream << std::endl;
+		stream << std::setw(14) << "S";
+		for (int i = 0; i < columns; ++i) {
+			stream << std::setw(9) << "X" << c[i];
 
-					}
-					else {
-						stream << std::setw(10) << std::setprecision(3) << simplex_tabl[i][j];
-					}
-					
+		}
+		stream << std::endl;
+		for (int i = 0; i < row + 1; ++i) {
+			if (i < row) stream << std::setw(3) << "X" << b[i];
+			else stream << std::setw(4) << "F";
+			for (int j = 0; j < columns + 1; ++j) {
+				if (si[i][j] == int(si[i][j])) {
+
+					stream << std::setw(10) << si[i][j];
+
 				}
-				stream << std::endl << std::endl;
+				else {
+					stream << std::setw(10) << std::setprecision(3) << si[i][j];
+				}
+
 			}
-			return stream;
-	
+			stream << std::endl << std::endl;
+		}
+		return stream;
+
 	}
 	void parse_file(const std::string& str) {
+		
+		
 		char op;
 		std::ifstream stream;
 		stream.open(str.c_str());
@@ -274,7 +600,7 @@ optimal();
 				int Num;
 				stream >> op;
 				if (op == '(') {
-					
+
 					while (stream >> op) {
 						if (op == ',') {
 							std::stringstream str_ch(end);
@@ -290,14 +616,14 @@ optimal();
 							++columns;
 							end.clear();
 							break;
-							
+
 						}
 						else end.push_back(op);
 					}
-			
-				
-					
-					
+
+
+
+
 				}
 			}
 
@@ -334,7 +660,7 @@ optimal();
 				double Num;
 				int k = 0, l = 0;
 				stream >> Num;
-				elements.resize(rows+1);
+				elements.resize(rows + 1);
 				if (s) {
 					for (int i = 0; i < columns + 1; ++i) {
 						for (int j = 0; j < rows + 1; ++j) {
@@ -343,7 +669,7 @@ optimal();
 								if (j == rows) {
 									elements[j][i] = 0;
 								}
-								else { 
+								else {
 									elements[j][i] = c_[k];
 									++k;
 								}
@@ -386,10 +712,11 @@ optimal();
 						}
 					}
 				}
-				
+
 			}
-		
+
 			stream.clear();
+		
 		}
 	}
 	void inv() {
@@ -402,7 +729,9 @@ optimal();
 		if (q) s = true;
 		else false;
 	}
-	~simplex() {}
+	~simplex() {
+		
+	}
 };
 int main()
 {
@@ -412,10 +741,11 @@ int main()
 	std::string m_or_m, s_or_l;
 	std::cout << "Cin path file" << std::endl;
 	std::cin >> str;
-	std::cout << "S or L" << std::endl;
+	std::cout << "S or L or CLP" << std::endl;
 	std::cin >> s_or_l;
 	bool Si = false;
 	if (s_or_l == "S") Si = true;
+	else if (s_or_l == "CLP") S.CLP = true;
 	S.S_or_L(Si);
 	std::cout << " max or min?" << std::endl;
 	std::cin >> m_or_m;
@@ -432,8 +762,8 @@ int main()
 	S.max_or_min1(m_m);
 	S.algorithm(str);
 
-	
-	
+
+
 }
 
 // Запуск программы: CTRL+F5 или меню "Отладка" > "Запуск без отладки"
