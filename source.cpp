@@ -263,98 +263,7 @@ public:
 		}
 		
 	}
-/*	void change() {
-		for (int i = 0; i < rows; ++i) {
-			for (int j = 0; j < columns + 1; ++j) {
-				elements[i][j] = proverka[i][j];
-			}
-		}
 
-		for (int i = 0; i < columns; ++i) {
-			cp[i] = (i + 1);
-		}
-		int k = 0;
-		for (int i = 0; i < rows; ++i) {
-			bp[i] = cp[columns - 1] + 1 + i;
-		}
-	}*/
-	/*void c_l() {
-		count = columns + rows;
-		int m = rows;
-		rows_check = rows;
-		func.resize(columns + 1);
-		rev.resize(columns + 1);
-		for (int i = 0; i < m; ++i) {
-			if (simplex_tabl[i][0] != int(simplex_tabl[i][0])) {
-				//change();
-				for (int j = 0; j < columns ; ++j) {
-					rev[j] = simplex_tabl[i][j + 1];
-				}
-				++rows_check;
-				++count;
-				bp.push_back(count);
-				left(simplex_tabl[i][0]);
-			}
-		}
-
-	}
-	void left(double k ) {
-		double m = floor(k);
-		
-		for (int i = 0; i < columns + 1; ++i) {
-			func[i] = simplex_tabl[rows][i];
-		}
-		rows = rows_check;
-		simplex_tabl.resize(rows + 1);
-		for (int i = 0; i < rows + 1; ++i) {
-			simplex_tabl[rows].resize(columns + 1);
-			for (int j = 0; j < columns + 1; ++j) {
-				if (i == rows - 1) {
-					if (j == 0) simplex_tabl[i][j] = m-k;
-					else simplex_tabl[i][j] = -rev[j - 1];
-				}
-				else if (i == rows) {
-					simplex_tabl[i][j] = func[j];
-				}
-			}
-		}
-		flag_optimal = true;
-		write(std::cout);
-		check_decision();
-		
-		optimal();
-		
-		int l;
-		for (int i = 0; i < rows; ++i) {
-			l = (round(1000 * simplex_tabl[i][0])) / 1000;
-			if (l != int(l)) {
-				check = false;
-				break;
-			}
-			else check = true;
-
-		}
-		if (check) {
-			if (simplex_tabl[rows][0] > F) {
-				std::cout << "No decision" << std::endl;
-				return;
-			}
-		}
-		//c_l();
-		
-	
-		write(std::cout);
-	}*/
-	/*void save() {
-		proverka.resize(rows);
-		for (int i = 0; i < rows; ++i) {
-			proverka[i].resize(columns + 1);
-			for (int j = 0; j < columns + 1; ++j) {
-				proverka[i][j] = elements[i][j];
-			}
-		}
-
-	}*/
 
 	    bool check_decision(int row, std::vector<std::vector<double>> &si, std::vector<std::vector<double>> &e, std::pair<int,int> el, std::vector<int> &c, std::vector<int> &b) {
 		bool not_minus = true;
@@ -468,21 +377,7 @@ public:
 					  write(std::cout, row, si, c, b);
 					  throw std::logic_error("NUll");
 				  }
-				/*for (int j = 1; j < columns + 1; ++j) {
-					if (si[row][j] < 0) flag_optimal = false;
-					else {
-						flag_optimal = true;
-						break;
-					}
-				}
 				
-				write(std::cout,row,si,c,b);
-				std::pair<int, int> elem;
-				if (!(flag_optimal)) {
-					 bool flag = check_decision(row, si, e, elem, c, b).first;
-				}
-				
-				optimal(flag_optimal,element,row,si,e,c,b);*/
 			
 		}
 		else std::cout << " Optimal decision" << std::endl;
